@@ -1,29 +1,35 @@
 package util
 
-import "github.com/spf13/viper"
+import (
+	"encoding/json"
+	"os"
+)
 
 type Config struct {
-	FromEmail    string `mapstructure:"FROM_EMAIL"`
-	SMTPPassword string `mapstructure:"SMTP_PASSWORD"`
-	ToEmail      string `mapstructure:"TO_EMAIL"`
-	ApiAddress   string `mapstructure:"API_ADDRESS"`
-	ApiAuth      string `mapstructure:"API_AUTH"`
+	Email struct {
+		From string `json:"from"`
+		To string `json:"to"`
+		SmtpPassword string `json:"smtpPassword"`
+		Mailserver string `json:"mailserver"`
+		Mailport string `json:"mailport"`
+	} `json:"email"`
+
+	Api struct {
+		Address string `json:"address"`
+		AuthToken string `json:"authtoken"`
+	}
 }
 
-func LoadConfig(path string) (config Config, err error) {
-	viper.AddConfigPath(path)
-	viper.SetConfigName("app")
-	viper.SetConfigType("env")
+func LoadConfiguration(filename string) (Config, error) {
+	var config Config
+	configFile, err := os.Open(filename)
 
-	viper.AutomaticEnv()
-
-	err = viper.ReadInConfig()
 	if err != nil {
-		return
+		return config, err
 	}
-
-	err = viper.Unmarshal(&config)
-	return
 	
-
+	defer configFile.Close()
+	jsonParser := json.NewDecoder(configFile)
+	err = jsonParser.Decode(&config)
+	return config, err
 }

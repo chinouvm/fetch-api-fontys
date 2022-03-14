@@ -3,12 +3,12 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/smtp"
-	"os"
 	"strconv"
 	"strings"
 
@@ -24,19 +24,26 @@ type fhictData struct {
 
 
 func main() {
-	config, err := util.LoadConfig(".")
+	fmt.Println("API Fetch wordt gestart!")
+	surnameArgs := flag.String("achternaamfilter", "M", "Welke letter er gebruikt wordt om achternaam te filteren")
+	givennameArgs := flag.Int("naamlengte", 3, "Hoelang de voornaam maximaal mag zijn.")
+	flag.Parse()
+
+	config, err := util.LoadConfiguration("config.json")
 	if err != nil {
 		log.Fatal(err)
-	}
+	} 
+	fmt.Println("Config loaded")
+
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", config.ApiAddress, nil)
+	req, err := http.NewRequest("GET", config.Api.Address, nil)
 	if err != nil {
     log.Fatal(err)
 	}
 
 	req.Header = http.Header{
     "Content-Type": []string{"application/json"},
-    "Authorization": []string{config.ApiAuth},
+    "Authorization": []string{config.Api.AuthToken},
 	}	
 
 	
@@ -58,35 +65,23 @@ func main() {
 		log.Fatal(err)
 	}
 
-	surnameArgs := "M"
-	givennameArgs := 3
 	mailbody := ""
-	
-	for i := 1; i < len(os.Args); i++ {
-
-			num, err := strconv.Atoi(os.Args[i])
-			if err != nil {
-				surnameArgs = os.Args[2]
-			} else {
-				givennameArgs = num
-			}
-	}
 
 	// Mail Setup
-	from := config.FromEmail
-	password := config.SMTPPassword
-	toEmail := config.ToEmail
+	from := config.Email.From
+	password := config.Email.SmtpPassword
+	toEmail := config.Email.To
 	to := []string{toEmail}
-	host := "smtp.gmail.com"
-	port := "587"
+	host := config.Email.Mailserver
+	port := config.Email.Mailport
 	address := host + ":" + port
 	subject := "Subject: Automatische verzonden mail vanuit Go Applicatie\n"
-	mailbody += "\n\nFilters: \n" + "Achternaam begint met: " + surnameArgs + "\nVoornaam langer dan: " + strconv.Itoa(givennameArgs) + " letter(s)!\n\n" + "\n----------------\n"
+	mailbody += "\n\nFilters: \n" + "Achternaam begint met: " + *surnameArgs + "\nVoornaam langer dan: " + strconv.Itoa(*givennameArgs) + " letter(s)!\n\n" + "\n----------------\n"
 
 	// ----------------------------------
 
 	for _, person := range data {
-		if strings.HasPrefix(person.DisplayName, surnameArgs) && len(person.GivenName) > givennameArgs {
+		if strings.HasPrefix(person.DisplayName, *surnameArgs) && len(person.GivenName) > *givennameArgs {
 			fmt.Println("Voornaam: " + person.GivenName + "\nAchternaam: " + person.SurName + "\nTelefoon: " + person.TelephoneNumber + "\n----------------\n")
 			mailbody += "Voornaam: " + person.GivenName + "\nAchternaam: " + person.SurName + "\nTelefoon: " + person.TelephoneNumber + "\n----------------\n"				
 		}
@@ -96,7 +91,7 @@ func main() {
 	auth := smtp.PlainAuth("", from, password, host)
 	mailerr := smtp.SendMail(address, auth, from, to, message)
 	if mailerr != nil {
-		fmt.Println("err:", err)
+		fmt.Println("Er is iets fout gegaan met het versturen van de mail! Kijk goed of de config juist is")
 	} else {
 		fmt.Println("Email verzonden!")
 	}
