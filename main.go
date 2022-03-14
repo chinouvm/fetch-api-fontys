@@ -67,7 +67,7 @@ func main() {
 
 	mailbody := ""
 
-	// Mail Setup
+	// Mail Setup from config
 	from := config.Email.From
 	password := config.Email.SmtpPassword
 	toEmail := config.Email.To
