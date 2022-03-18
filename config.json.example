@@ -1,0 +1,13 @@
+{
+  "email": {
+    "from": "emailfrom@gmail.com",
+    "to": "destinationemail@gmail.com",
+    "smtpPassword": "password",
+    "mailserver": "mailserver",
+    "mailport": "port"
+  },
+  "api": {
+    "address": "https://api.fhict.nl/people",
+    "authToken": "Auth Token for Api"
+  }
+}

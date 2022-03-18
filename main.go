@@ -8,11 +8,14 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/mail"
 	"net/smtp"
+	"os"
 	"strconv"
 	"strings"
 
 	"github.com/chinouvm/fetch_with_go/util"
+	"github.com/scorredoira/email"
 )
 
 type fhictData struct {
@@ -29,11 +32,12 @@ func main() {
 	givennameArgs := flag.Int("naamlengte", 3, "Hoelang de voornaam maximaal mag zijn.")
 	flag.Parse()
 
+
 	config, err := util.LoadConfiguration("config.json")
 	if err != nil {
 		log.Fatal(err)
 	} 
-	fmt.Println("Config loaded")
+	fmt.Println("Config ingeladen")
 
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", config.Api.Address, nil)
@@ -65,35 +69,46 @@ func main() {
 		log.Fatal(err)
 	}
 
-	mailbody := ""
+	file, _ := os.Create("output.txt")
 
-	// Mail Setup from config
-	from := config.Email.From
-	password := config.Email.SmtpPassword
-	toEmail := config.Email.To
-	to := []string{toEmail}
-	host := config.Email.Mailserver
-	port := config.Email.Mailport
-	address := host + ":" + port
-	subject := "Subject: Automatische verzonden mail vanuit Go Applicatie\n"
-	mailbody += "\n\nFilters: \n" + "Achternaam begint met: " + *surnameArgs + "\nVoornaam langer dan: " + strconv.Itoa(*givennameArgs) + " letter(s)!\n\n" + "\n----------------\n"
-
-	// ----------------------------------
-
-	for _, person := range data {
-		if strings.HasPrefix(person.DisplayName, *surnameArgs) && len(person.GivenName) > *givennameArgs {
-			fmt.Println("Voornaam: " + person.GivenName + "\nAchternaam: " + person.SurName + "\nTelefoon: " + person.TelephoneNumber + "\n----------------\n")
-			mailbody += "Voornaam: " + person.GivenName + "\nAchternaam: " + person.SurName + "\nTelefoon: " + person.TelephoneNumber + "\n----------------\n"				
-		}
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	message := []byte(subject + mailbody)
-	auth := smtp.PlainAuth("", from, password, host)
-	mailerr := smtp.SendMail(address, auth, from, to, message)
-	if mailerr != nil {
-		fmt.Println("Er is iets fout gegaan met het versturen van de mail! Kijk goed of de config juist is")
-	} else {
-		fmt.Println("Email verzonden!")
+	defer file.Close()
+
+	for _, person := range data {
+		if strings.HasPrefix(person.DisplayName, *surnameArgs) || strings.HasPrefix(person.SurName, *surnameArgs) && len(person.GivenName) > *givennameArgs {
+			if person.DisplayName[0:1] == person.SurName[0:1] {
+				_, err := file.WriteString("Voornaam: " + person.GivenName + "\nAchternaam: " + person.SurName + "\nTelefoon: " + person.TelephoneNumber + "\n----------------\n")
+				if err != nil {
+					log.Fatal(err)
+				}
+			} else {
+				_, err := file.WriteString("Voornaam: " + person.GivenName + "\nAchternaam: " + person.SurName + "\nDisplay: " + person.DisplayName + "\nTelefoon: " + person.TelephoneNumber + "\n----------------\n")
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+		}	
+	}
+
+	m := email.NewMessage("Application Output", "Filters: \n" + "Achternaam begint met: " + *surnameArgs + "\nVoornaam langer dan: " + strconv.Itoa(*givennameArgs) + " letter(s)!\n\n")
+	m.From = mail.Address{Name: "Golang Application", Address: config.Email.From}
+	m.To = []string{config.Email.To}
+	m.AddHeader("Subject", "Output from the Fontys API Fetch!")
+
+	if err := m.Attach("output.txt"); err != nil {
+		log.Fatal(err)
+	}
+
+	auth := smtp.PlainAuth("", config.Email.From, config.Email.SmtpPassword, config.Email.Mailserver)
+	if err := email.Send(config.Email.Mailserver + ":" + config.Email.Mailport, auth, m); err != nil {
+		log.Fatal(err)
+	}
+
+	if err == nil {
+		fmt.Printf("Email succesvol verzonden naar %s", config.Email.To)
 	}
 }
 
