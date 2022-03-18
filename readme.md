@@ -22,7 +22,7 @@ Create a config.json file with this code:
 }
 ```
 
-You can also remove the .example from config.json**.example**
+You can also remove the **.example** from config.json.example
 
 ## Example
 
