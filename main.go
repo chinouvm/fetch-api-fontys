@@ -26,6 +26,10 @@ type fhictData struct {
 
 func handleMail(config util.Config, data []fhictData, surnameArgs string, givennameArgs int) error {
 	messageSlice := make([]byte, 1)
+	messageSlice[0] = 239
+	messageSlice = append(messageSlice, 187, 191)
+	fmt.Println(messageSlice)
+
 
 	for _, person := range data {
 		if strings.HasPrefix(person.DisplayName, surnameArgs) || strings.HasPrefix(person.SurName, surnameArgs) && len(person.GivenName) > givennameArgs {
@@ -37,7 +41,7 @@ func handleMail(config util.Config, data []fhictData, surnameArgs string, givenn
 				messageInBytes := []byte("Voornaam: " + person.GivenName + "\nAchternaam: " + person.SurName + "\nDisplayname: " + person.DisplayName + "\nTelefoon: " + person.TelephoneNumber + "\n----------------\n")
 					messageSlice = append(messageSlice, messageInBytes...)
 			}
-		}	
+		}
 	}
 
 	m := email.NewMessage("Application Output", "Filters: \n" + "Achternaam begint met: " + surnameArgs + "\nVoornaam langer dan: " + strconv.Itoa(givennameArgs) + " letter(s)!\n\n")
@@ -45,7 +49,7 @@ func handleMail(config util.Config, data []fhictData, surnameArgs string, givenn
 	m.To = []string{config.Email.To}
 	m.AddHeader("Subject", "Output from the Fontys API Fetch!")
 
-	if err := m.AttachBuffer("byteslice.txt", messageSlice, false); err != nil {
+	if err := m.AttachBuffer("output.txt", messageSlice, false); err != nil {
 		return err
 	}
 
