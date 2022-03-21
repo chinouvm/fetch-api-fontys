@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/chinouvm/fetch_with_go/util"
+	"github.com/chinouvm/fetch-api-fontys/util"
 	"github.com/scorredoira/email"
 )
 
