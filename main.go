@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/mail"
 	"net/smtp"
-	"os"
 	"strconv"
 	"strings"
 
@@ -25,44 +24,39 @@ type fhictData struct {
 	TelephoneNumber string `json:"telephoneNumber"`
 }
 
-func handleFile(data []fhictData, surnameArgs string, givennameArgs int) {
-	file, _ := os.Create("output.txt")
-
-	defer file.Close()
+func handleMail(config util.Config, data []fhictData, surnameArgs string, givennameArgs int) error {
+	messageSlice := make([]byte, 1)
 
 	for _, person := range data {
 		if strings.HasPrefix(person.DisplayName, surnameArgs) || strings.HasPrefix(person.SurName, surnameArgs) && len(person.GivenName) > givennameArgs {
 			if person.DisplayName[0:1] == person.SurName[0:1] {
-				_, err := file.WriteString("Voornaam: " + person.GivenName + "\nAchternaam: " + person.SurName + "\nTelefoon: " + person.TelephoneNumber + "\n----------------\n")
-				if err != nil {
-					log.Fatal(err)
-				}
+					messageInBytes := []byte("Voornaam: " + person.GivenName + "\nAchternaam: " + person.SurName + "\nTelefoon: " + person.TelephoneNumber + "\n----------------\n")
+					messageSlice = append(messageSlice, messageInBytes...)
+
 			} else {
-				_, err := file.WriteString("Voornaam: " + person.GivenName + "\nAchternaam: " + person.SurName + "\nDisplay: " + person.DisplayName + "\nTelefoon: " + person.TelephoneNumber + "\n----------------\n")
-				if err != nil {
-					log.Fatal(err)
-				}
+				messageInBytes := []byte("Voornaam: " + person.GivenName + "\nAchternaam: " + person.SurName + "\nDisplayname: " + person.DisplayName + "\nTelefoon: " + person.TelephoneNumber + "\n----------------\n")
+					messageSlice = append(messageSlice, messageInBytes...)
 			}
 		}	
 	}
-}
 
-func handleMail(config util.Config, surnameArgs string, givennameArgs int) {
 	m := email.NewMessage("Application Output", "Filters: \n" + "Achternaam begint met: " + surnameArgs + "\nVoornaam langer dan: " + strconv.Itoa(givennameArgs) + " letter(s)!\n\n")
 	m.From = mail.Address{Name: "Golang Application", Address: config.Email.From}
 	m.To = []string{config.Email.To}
 	m.AddHeader("Subject", "Output from the Fontys API Fetch!")
 
-	if err := m.Attach("output.txt"); err != nil {
-		log.Fatal(err)
+	if err := m.AttachBuffer("byteslice.txt", messageSlice, false); err != nil {
+		return err
 	}
 
 	auth := smtp.PlainAuth("", config.Email.From, config.Email.SmtpPassword, config.Email.Mailserver)
 	if err := email.Send(config.Email.Mailserver + ":" + config.Email.Mailport, auth, m); err != nil {
-		log.Fatal(err)
+		return err
 	} else if err == nil {
 		fmt.Printf("Email succesvol verzonden naar %s", config.Email.To)
 	}
+
+	return nil
 }
 
 
@@ -109,7 +103,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	handleFile(data, *surnameArgs, *givennameArgs)
-	handleMail(config, *surnameArgs, *givennameArgs)
+	handleMail(config, data, *surnameArgs, *givennameArgs)
 }
 
