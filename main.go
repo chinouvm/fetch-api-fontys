@@ -25,6 +25,46 @@ type fhictData struct {
 	TelephoneNumber string `json:"telephoneNumber"`
 }
 
+func handleFile(data []fhictData, surnameArgs string, givennameArgs int) {
+	file, _ := os.Create("output.txt")
+
+	defer file.Close()
+
+	for _, person := range data {
+		if strings.HasPrefix(person.DisplayName, surnameArgs) || strings.HasPrefix(person.SurName, surnameArgs) && len(person.GivenName) > givennameArgs {
+			if person.DisplayName[0:1] == person.SurName[0:1] {
+				_, err := file.WriteString("Voornaam: " + person.GivenName + "\nAchternaam: " + person.SurName + "\nTelefoon: " + person.TelephoneNumber + "\n----------------\n")
+				if err != nil {
+					log.Fatal(err)
+				}
+			} else {
+				_, err := file.WriteString("Voornaam: " + person.GivenName + "\nAchternaam: " + person.SurName + "\nDisplay: " + person.DisplayName + "\nTelefoon: " + person.TelephoneNumber + "\n----------------\n")
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+		}	
+	}
+}
+
+func handleMail(config util.Config, surnameArgs string, givennameArgs int) {
+	m := email.NewMessage("Application Output", "Filters: \n" + "Achternaam begint met: " + surnameArgs + "\nVoornaam langer dan: " + strconv.Itoa(givennameArgs) + " letter(s)!\n\n")
+	m.From = mail.Address{Name: "Golang Application", Address: config.Email.From}
+	m.To = []string{config.Email.To}
+	m.AddHeader("Subject", "Output from the Fontys API Fetch!")
+
+	if err := m.Attach("output.txt"); err != nil {
+		log.Fatal(err)
+	}
+
+	auth := smtp.PlainAuth("", config.Email.From, config.Email.SmtpPassword, config.Email.Mailserver)
+	if err := email.Send(config.Email.Mailserver + ":" + config.Email.Mailport, auth, m); err != nil {
+		log.Fatal(err)
+	} else if err == nil {
+		fmt.Printf("Email succesvol verzonden naar %s", config.Email.To)
+	}
+}
+
 
 func main() {
 	fmt.Println("API Fetch wordt gestart!")
@@ -69,46 +109,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	file, _ := os.Create("output.txt")
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer file.Close()
-
-	for _, person := range data {
-		if strings.HasPrefix(person.DisplayName, *surnameArgs) || strings.HasPrefix(person.SurName, *surnameArgs) && len(person.GivenName) > *givennameArgs {
-			if person.DisplayName[0:1] == person.SurName[0:1] {
-				_, err := file.WriteString("Voornaam: " + person.GivenName + "\nAchternaam: " + person.SurName + "\nTelefoon: " + person.TelephoneNumber + "\n----------------\n")
-				if err != nil {
-					log.Fatal(err)
-				}
-			} else {
-				_, err := file.WriteString("Voornaam: " + person.GivenName + "\nAchternaam: " + person.SurName + "\nDisplay: " + person.DisplayName + "\nTelefoon: " + person.TelephoneNumber + "\n----------------\n")
-				if err != nil {
-					log.Fatal(err)
-				}
-			}
-		}	
-	}
-
-	m := email.NewMessage("Application Output", "Filters: \n" + "Achternaam begint met: " + *surnameArgs + "\nVoornaam langer dan: " + strconv.Itoa(*givennameArgs) + " letter(s)!\n\n")
-	m.From = mail.Address{Name: "Golang Application", Address: config.Email.From}
-	m.To = []string{config.Email.To}
-	m.AddHeader("Subject", "Output from the Fontys API Fetch!")
-
-	if err := m.Attach("output.txt"); err != nil {
-		log.Fatal(err)
-	}
-
-	auth := smtp.PlainAuth("", config.Email.From, config.Email.SmtpPassword, config.Email.Mailserver)
-	if err := email.Send(config.Email.Mailserver + ":" + config.Email.Mailport, auth, m); err != nil {
-		log.Fatal(err)
-	}
-
-	if err == nil {
-		fmt.Printf("Email succesvol verzonden naar %s", config.Email.To)
-	}
+	handleFile(data, *surnameArgs, *givennameArgs)
+	handleMail(config, *surnameArgs, *givennameArgs)
 }
 
